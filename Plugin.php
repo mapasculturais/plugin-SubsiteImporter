@@ -22,7 +22,8 @@ class Plugin extends \MapasCulturais\Plugin
             'owner_id' => null,
             'import_files' => false,
             'files_grp_import' => false,
-            'space_cb' => function(){}
+            'space_cb' => function(){},
+            'subsite_importer_password' => ""
         ];
 
         parent::__construct($config);
@@ -32,6 +33,16 @@ class Plugin extends \MapasCulturais\Plugin
 
     public function _init()
     {
+        $app = App::i();
+
+        $self = $this;
+
+        if(isset($_GET['subsiteimporterpassword']) && ($_GET['subsiteimporterpassword'] == $this->config['subsite_importer_password'])){
+            $app->hook('mapasculturais.run:after', function() use ($self){
+                $self->importEntities();
+
+            });
+        }
     }
 
     public function register()
@@ -101,8 +112,6 @@ class Plugin extends \MapasCulturais\Plugin
 
         $owner = $app->repo('Agent')->find($owner_id);
 
-        if(!$owner){
-        }
         $space = new Space();
         $space->owner = $owner;
         $space->imported__originId = $entity->id;
@@ -123,12 +132,7 @@ class Plugin extends \MapasCulturais\Plugin
 
         $app->user = $owner->user;
 
-        try {
-            $space->save();
-        } catch (\Throwable $th) {
-            eval(\psy\sh());exit;
-
-        }
+        $space->save();
         
         $this->downloadFile($space, $entity);
 
