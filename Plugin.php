@@ -82,6 +82,7 @@ class Plugin extends \MapasCulturais\Plugin
 
     public function import_space($entity)
     {
+        
         ini_set('max_execution_time', 0);
         ini_set('memory_limit', '768M');
 
@@ -112,7 +113,10 @@ class Plugin extends \MapasCulturais\Plugin
 
         $owner = $app->repo('Agent')->find($owner_id);
 
-        $space = new Space();
+        if(!$space = $this->spaceExist($entity)){
+            $space = new Space();
+        }
+
         $space->owner = $owner;
         $space->imported__originId = $entity->id;
 
@@ -195,5 +199,34 @@ class Plugin extends \MapasCulturais\Plugin
                 $file->save(true);
             }
         }
+    }
+
+    public function spaceExist($entity)
+    {
+        $app = App::i();
+
+        $_name = trim($entity->name);
+
+        if(!$space = $app->repo("Space")->findOneBy(['name' => $_name])){
+            return false;
+        }
+
+        $fields_verify = [
+            "En_Num" ,
+            "En_Bairro" ,
+        ];
+
+        foreach($fields_verify as $field){
+            $field_e = str_replace(" ", "", mb_strtolower($entity->$field));
+            $field_s = str_replace(" ", "", mb_strtolower($space->$field));
+
+            if($field_e != $field_s){
+                return false;
+            }
+
+        }
+
+        $app->log->debug("Entidade {$entity->id} já esta cadastrada com ID {$space->id}");
+        return $space;
     }
 }
