@@ -18,6 +18,8 @@ class Plugin extends \MapasCulturais\Plugin
         $config += [
             'url_import' => '',
             'query_string' => [],
+            'public_key' => null,
+            'private_key' => null,
             'entities_to_import' => [],
             'get_metadata' => false,
             'owner_id' => null,
