@@ -82,8 +82,10 @@ class Plugin extends \MapasCulturais\Plugin
         $params['@limit'] = 50;
         $params['@page'] = 1;
 
-        $api = new \MapasSDK\MapasSDK($url);
+        $api = new \MapasSDK\MapasSDK($url, $_pubKey, $_priKey);
 
+        $this->api = $api;
+      
         foreach ($entities_to_import as $type) {
 
             while ($entities = $api->findEntities($type, '*', $params)) {
