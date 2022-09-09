@@ -52,8 +52,16 @@ class Plugin extends \MapasCulturais\Plugin
             'type' => 'int'
         ];
 
-        $this->registerAgentMetadata('imported__originId', $cfg);
-        $this->registerSpaceMetadata('imported__originId', $cfg);
+        $this->registerAgentMetadata('imported__originId', $cfgOriginId);
+        $this->registerSpaceMetadata('imported__originId', $cfgOriginId);
+        $this->registerUserMetadata('imported__originId', $cfgOriginId);
+
+        $cfgParentId = [
+            'label' => 'Registra o ID parent que o agente tem',
+            'type' => 'int'
+        ];
+
+        $this->registerAgentMetadata('imported__parentId', $cfgParentId);
     }
 
     public function importEntities()
