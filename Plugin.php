@@ -2,11 +2,12 @@
 
 namespace SubsiteImporter;
 
+use DateTime;
 use MapasCulturais\App;
+use MapasCulturais\Entity;
+use MapasCulturais\Entities\User;
 use MapasCulturais\Entities\Agent;
 use MapasCulturais\Entities\Space;
-use MapasCulturais\Entity;
-
 
 class Plugin extends \MapasCulturais\Plugin
 {
