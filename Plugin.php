@@ -64,6 +64,9 @@ class Plugin extends \MapasCulturais\Plugin
         $this->registerAgentMetadata('imported__parentId', $cfgParentId);
     }
 
+    protected $api;
+
+    //Executa a importação de entidades
     public function importEntities()
     {
         $url =  $this->config['url_import'];
