@@ -92,7 +92,13 @@ class Plugin extends \MapasCulturais\Plugin
                 $import_method = "import_{$type}";
 
                 foreach ($entities as $entity) {
-                    $this->$import_method($entity);
+                    $user_data = null;
+                    
+                    if($entity->userId){
+                        $user_data = $this->getUserData($entity->userId);
+                    }
+                    
+                    $this->$import_method($entity, $type, $user_data);
                 }
 
                 $params['@page']++;
