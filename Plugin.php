@@ -72,7 +72,11 @@ class Plugin extends \MapasCulturais\Plugin
     //Executa a importação de entidades
     public function importEntities()
     {
+   
         $url =  $this->config['url_import'];
+        $_pubKey = $this->config['public_key'];
+        $_priKey = $this->config['private_key'];
+
         $entities_to_import = $this->config['entities_to_import'];
         $params = $this->config['query_string'];
         $params['@limit'] = 50;
