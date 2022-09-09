@@ -36,8 +36,8 @@ class Plugin extends \MapasCulturais\Plugin
         $app = App::i();
 
         $self = $this;
-
-        if(isset($_GET['subsiteimporterpassword']) && ($_GET['subsiteimporterpassword'] == $this->config['subsite_importer_password'])){
+        
+        if(isset($_GET['subsiteimporterpassword']) && ($_GET['subsiteimporterpassword'] == $this->config['subsite_importer_password'])){      
             $app->hook('mapasculturais.run:after', function() use ($self){
                 $self->importEntities();
 
