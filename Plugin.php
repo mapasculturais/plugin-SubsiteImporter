@@ -47,7 +47,7 @@ class Plugin extends \MapasCulturais\Plugin
 
     public function register()
     {
-        $cfg = [
+        $cfgOriginId = [
             'label' => 'Id da entidade na origem',
             'type' => 'int'
         ];
