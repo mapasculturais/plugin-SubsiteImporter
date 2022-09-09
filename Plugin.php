@@ -197,14 +197,15 @@ class Plugin extends \MapasCulturais\Plugin
 
         $app = App::i();
 
-        if ($app->repo('SpaceMeta')->findOneBy(['key' => 'imported__originId', 'value' => $entity->id])) {
-            $app->log->debug("Entidade {$entity->id} Já foi importada");
+        $_type = ucfirst($type);
+
+        if ($this->isCreatedEntity($entity, $_type)) {
             return;
         }
 
         $metadata = [];
-        if ($this->config['get_metadata']) {
-            $metadata = array_keys(Space::getMetadataMetadata());
+        if ($this->config['get_metadata'] && $this->getRegisteredMetadada($_type)) {
+            $metadata = $this->getRegisteredMetadada($_type);
         }
 
         $properties = ['name', 'location', 'public', 'shortDescription', 'longDescription', 'type'];
@@ -217,7 +218,7 @@ class Plugin extends \MapasCulturais\Plugin
          * @TODO Testar bloco abaixo quando implementar importação de agentes
          */
         if ($agent_meta = $app->repo('AgentMeta')->findOneBy(['key' => 'imported__originId', 'value' => $entity->owner])) {
-            // $owner_id = $agent_meta->value;
+            $owner_id = $agent_meta->value;
         }
 
         $owner = $app->repo('Agent')->find($owner_id);
