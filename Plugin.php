@@ -243,6 +243,7 @@ class Plugin extends \MapasCulturais\Plugin
         $app->enableAccessControl();
     }
 
+    // Faz o dowload de arquivos tipo avatar e header
     protected function downloadFile(Entity $owner, $entity)
     {
         if (!$this->config['import_files']) {
@@ -295,6 +296,7 @@ class Plugin extends \MapasCulturais\Plugin
         }
     }
 
+    // Verifica se o espaço ja existe na base de dados
     public function spaceExist($entity)
     {
         $app = App::i();
@@ -322,5 +324,86 @@ class Plugin extends \MapasCulturais\Plugin
 
         $app->log->debug("Entidade {$entity->id} já esta cadastrada com ID {$space->id}");
         return $space;
+    }
+    
+    // Verifica se uma entidade existe já cadastrada de uma importação anterior
+    public function isCreatedEntity($entity, $type)
+    {
+        $app = App::i();
+        
+       $class = $type."Meta";
+        if ($app->repo($class)->findOneBy(['key' => 'imported__originId', 'value' => $entity->id])) {
+            $app->log->debug("Entidade {$entity->id} Já foi importada");
+            return true;
+        }
+
+        return false;
+    }
+
+    // pega os metadados registrados de uma entidade
+    public function getRegisteredMetadada($type)
+    {
+        $class = "MapasCulturais\\Entities\\{$type}";
+        if(class_exists($class)){
+            $_class = new $class();
+            return array_keys($_class::getMetadataMetadata());
+        }
+        return false;
+    }
+
+    // Pega os dados de um usuario para garantir a mesma autenticação
+    public function getUserData($userId)
+    {
+        $app = App::i();
+
+        if($app->rcache->contains("user_data:{$userId}")){
+            return $app->rcache->fetch("user_data:{$userId}");
+        }
+
+        $uri = "painel/userManagement";
+
+        $curl = $this->api->apiGet($uri, ["userId" => $userId], [
+            'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+            'Accept-Language' => 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+            'Cache-Control' => 'no-cache',
+            'Connection' => 'keep-alive',
+            'Cookie' => '_ga=GA1.3.753599530.1658147167; PHPSESSID=86ecnlrae7776dos88r0b565ef; BIGipServerMAPAS_POOL=906668224.20480.0000; mapasculturais.uid=8839; mapasculturais.adm=1; TS01135f6a=01ad235981b983f1cbc78d5f72c66693f552e6785b355768ec618b59aa9ef22f1ba1f17c1e4fd905e6bc9ee28077c3adfeeffb2628c06d7e6733750fcdae8c56e60869c5111587d6487d76eeeffac8511d6dc1904422be6ae1339dbb7152a00a39bf055d14ab957e663fbb14e19451cf8a92d0a298',
+            'Host' => 'camacari.ba.mapas.cultura.gov.br',
+            'Pragma' => 'no-cache',
+            'Referer' =>'http://camacari.ba.mapas.cultura.gov.br/painel/userManagement/',
+            'Upgrade-Insecure-Requests' => '1',
+            'User-Agent' => 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36',
+        ]);
+
+        $exp_email = '#<span class="js-editable editable-click editable-empty" data-edit="email" data-original-title="email" data-emptytext="">\s*([^<]*?)\s*</span>#';
+        $exp_auth_id = '#<span class="js-editable editable-click editable-empty" data-edit="" data-original-title="id autenticação" data-emptytext="">\s*([^<]*?)\s*</span>#';
+        $exp_last_auth = '#<span class="js-editable editable-click editable-empty" data-edit="" data-original-title="último login" data-emptytext="">\s*([^<]*?)\s*</span>#';
+        $exp_created_at = '#<span class="js-editable editable-click editable-empty" data-edit="" data-original-title="data criação" data-emptytext="">\s*([^<]*?)\s*</span>#';
+
+        $data = (object)[];
+        if(preg_match($exp_email, $curl->response, $m)){
+            $data->email = $m[1];
+        }
+
+        if(preg_match($exp_auth_id, $curl->response, $m)){
+            $data->auth_id = $m[1];
+        }
+
+        if(preg_match($exp_last_auth, $curl->response, $m)){
+            $exp = explode("às", $m[1]);
+            $last_auth = trim($exp[0]). " ". trim($exp[1]);
+            $data->last_auth = DateTime::createFromFormat('d/m/Y H:i', $last_auth);
+        }
+
+        if(preg_match($exp_created_at, $curl->response, $m)){
+            $exp = explode("às", $m[1]);
+            $created_at = trim($exp[0]). " ". trim($exp[1]);
+            $data->created_at = DateTime::createFromFormat('d/m/Y H:i', $created_at);
+        }
+
+        $app->rcache->save("user_data:{$userId}", $data);
+
+        return $data;
+
     }
 }
