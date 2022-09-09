@@ -218,7 +218,7 @@ class Plugin extends \MapasCulturais\Plugin
          * @TODO Testar bloco abaixo quando implementar importação de agentes
          */
         if ($agent_meta = $app->repo('AgentMeta')->findOneBy(['key' => 'imported__originId', 'value' => $entity->owner])) {
-            $owner_id = $agent_meta->value;
+            $owner_id = $agent_meta->owner;
         }
 
         $owner = $app->repo('Agent')->find($owner_id);
