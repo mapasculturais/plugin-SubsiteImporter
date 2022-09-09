@@ -91,7 +91,90 @@ class Plugin extends \MapasCulturais\Plugin
         }
     }
 
-    public function import_space($entity)
+    // Faz a importação dos agentes
+    public function import_agent($entity, $type, $user_data = null)
+    {
+        $app = App::i();
+
+        ini_set('max_execution_time', 0);
+        ini_set('memory_limit', '768M');
+
+        $_type = ucfirst($type);
+
+        if ($this->isCreatedEntity($entity, $_type)) {
+            return;
+        }
+
+        $metadata = [];
+        if ($this->config['get_metadata'] && $this->getRegisteredMetadada($_type)) {
+            $metadata = $this->getRegisteredMetadada($_type);
+        }
+
+        $app->disableAccessControl();
+        // Criação do usuário
+      
+        if (!($user_meta = $app->repo("UserMeta")->findOneBy(['key' => 'imported__originId', 'value' => $entity->userId]))) {
+            $user = new User();
+            $user->authProvider = 0;
+            $user->id = $entity->userId;
+            $user->email = $user_data->email;
+            $user->status = User::STATUS_ENABLED;
+            $user->authUid = $user_data->auth_id;
+            $user->lastLoginTimestamp = $user_data->last_auth;
+            $user->imported__originId = $entity->userId;
+            $user->createTimestamp = $user_data->created_at;
+            $user->save(true);
+        }else{
+            $user = $app->repo("User")->find($user_meta->owner);
+        }
+
+        // Criação do agente
+        $properties = ['name', 'location', 'public', 'shortDescription', 'longDescription', 'type'];
+        $fields = array_merge($properties, $metadata);
+       
+        $agent = new Agent($user);
+        $agent->imported__originId = $entity->id;
+        $agent->id = $entity->id;
+        $agent->createTimestamp = (new DateTime($entity->createTimestamp->date));
+   
+        foreach ($fields as $field) {
+            if (!isset($entity->$field) || empty($entity->$field)) {
+                continue;
+            }
+
+            if ($field == "type") {
+                $agent->type = $entity->$field->id;
+            } else {
+                $agent->$field = $entity->$field;
+            }
+        }
+        
+        $parente_mess = "";
+        if($entity->parent){
+            if(!($parent_meta = $app->repo('AgentMeta')->findOneBy(['key' => 'imported__originId', 'value' => $entity->parent]))){
+                $agent->imported__parentId = $entity->parent;
+                $parente_mess = " - ParentId não foi setado";
+            }else{
+                $parent = $app->repo("Agent")->find($parent_meta->owner);
+                $agent->parent = $parent;
+                $parente_mess = " - ParentId {$parent->id}";
+            }
+        }
+        
+        $agent->save(true);
+
+        $user->profile = $agent;
+        $user->save(true);
+        $this->downloadFile($agent, $entity);
+
+        $app->log->debug("Agente {$entity->id} importado com sucesso com id {$agent->id} {$parente_mess}");
+        $app->em->clear();
+
+        $app->enableAccessControl();
+    }
+
+    // Faz a importação dos espaços
+    public function import_space($entity, $type, $user_data = null)
     {
         
         ini_set('max_execution_time', 0);
