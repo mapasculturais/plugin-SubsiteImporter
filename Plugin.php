@@ -106,11 +106,15 @@ class Plugin extends \MapasCulturais\Plugin
                     }
 
                     $user_data = null;
-                    
+                   
                     if(isset($entity->userId) && $entity->userId){
+                        if(!$this->getUserData($entity->userId)){
+                           continue; 
+                        }
+
                         $user_data = $this->getUserData($entity->userId);
                     }
-                    
+                 
                     $this->$import_method($entity, $type, $user_data);
                 }
 
@@ -178,15 +182,7 @@ class Plugin extends \MapasCulturais\Plugin
         
         $parente_mess = "";
         if($entity->parent){
-            if(!($parent_meta = $app->repo('AgentMeta')->findOneBy(['key' => 'imported__originId', 'value' => $entity->parent]))){
-                $agent->imported__parentId = $entity->parent;
-                $parente_mess = " - ParentId não foi setado";
-            }else{
-                $parent = $app->repo("Agent")->find($parent_meta->owner);
-                $agent->parent = $parent->id;
-                $agent->imported__parentId = $entity->parent;
-                $parente_mess = " - ParentId {$parent->id}";
-            }
+            $agent->imported__parentId = $entity->parent;
         }
         
         $agent->save(true);
@@ -379,7 +375,14 @@ class Plugin extends \MapasCulturais\Plugin
     // Pega os dados de um usuario para garantir a mesma autenticação
     public function getUserData($userId)
     {
+       
         $app = App::i();
+
+        if(!$this->config['cookie']){
+            $app->log->debug("Cookie para acesso aos dados de autenticação não foi definido");
+            return;
+        }
+
 
         if($app->rcache->contains("user_data:{$userId}")){
             return $app->rcache->fetch("user_data:{$userId}");
@@ -392,7 +395,7 @@ class Plugin extends \MapasCulturais\Plugin
             'Accept-Language' => 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
             'Cache-Control' => 'no-cache',
             'Connection' => 'keep-alive',
-            'Cookie' => '_ga=GA1.3.753599530.1658147167; PHPSESSID=86ecnlrae7776dos88r0b565ef; BIGipServerMAPAS_POOL=906668224.20480.0000; mapasculturais.uid=8839; mapasculturais.adm=1; TS01135f6a=01ad235981b983f1cbc78d5f72c66693f552e6785b355768ec618b59aa9ef22f1ba1f17c1e4fd905e6bc9ee28077c3adfeeffb2628c06d7e6733750fcdae8c56e60869c5111587d6487d76eeeffac8511d6dc1904422be6ae1339dbb7152a00a39bf055d14ab957e663fbb14e19451cf8a92d0a298',
+            'cookie' => $this->config['cookie'],
             'Host' => 'camacari.ba.mapas.cultura.gov.br',
             'Pragma' => 'no-cache',
             'Referer' =>'http://camacari.ba.mapas.cultura.gov.br/painel/userManagement/',
@@ -405,7 +408,14 @@ class Plugin extends \MapasCulturais\Plugin
         $exp_last_auth = '#<span class="js-editable editable-click editable-empty" data-edit="" data-original-title="último login" data-emptytext="">\s*([^<]*?)\s*</span>#';
         $exp_created_at = '#<span class="js-editable editable-click editable-empty" data-edit="" data-original-title="data criação" data-emptytext="">\s*([^<]*?)\s*</span>#';
 
-        $data = (object)[];
+        $data = (object)[
+            'email' => null,
+            'auth_id' => null,
+            'last_auth' => null,
+            'created_at' => null,
+            'created_at' => null,
+        ];
+
         if(preg_match($exp_email, $curl->response, $m)){
             $data->email = $m[1];
         }
