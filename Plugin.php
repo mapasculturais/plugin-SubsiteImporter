@@ -26,7 +26,8 @@ class Plugin extends \MapasCulturais\Plugin
             'import_files' => false,
             'files_grp_import' => false,
             'space_cb' => function(){},
-            'subsite_importer_password' => ""
+            'subsite_importer_password' => "",
+            'Cookie' => null
         ];
 
         parent::__construct($config);
@@ -45,6 +46,10 @@ class Plugin extends \MapasCulturais\Plugin
                 $self->importEntities();
 
             });
+        }
+
+        if(isset($_GET['subsiteimporterupdateparent']) && ($_GET['subsiteimporterupdateparent'] == $this->config['subsite_importer_password'])){   
+            $this->parentIdRelation();
         }
     }
 
@@ -79,7 +84,7 @@ class Plugin extends \MapasCulturais\Plugin
 
         $entities_to_import = $this->config['entities_to_import'];
         $params = $this->config['query_string'];
-        $params['@limit'] = 50;
+        $params['@limit'] = 400;
         $params['@page'] = 1;
 
         $api = new \MapasSDK\MapasSDK($url, $_pubKey, $_priKey);
@@ -89,12 +94,20 @@ class Plugin extends \MapasCulturais\Plugin
         foreach ($entities_to_import as $type) {
 
             while ($entities = $api->findEntities($type, '*', $params)) {
+
                 $import_method = "import_{$type}";
 
                 foreach ($entities as $entity) {
+
+                    $_type = ucfirst($type);
+
+                    if ($this->isCreatedEntity($entity, $_type)) {
+                        continue;
+                    }
+
                     $user_data = null;
                     
-                    if($entity->userId){
+                    if(isset($entity->userId) && $entity->userId){
                         $user_data = $this->getUserData($entity->userId);
                     }
                     
@@ -116,9 +129,6 @@ class Plugin extends \MapasCulturais\Plugin
 
         $_type = ucfirst($type);
 
-        if ($this->isCreatedEntity($entity, $_type)) {
-            return;
-        }
 
         $metadata = [];
         if ($this->config['get_metadata'] && $this->getRegisteredMetadada($_type)) {
@@ -129,10 +139,11 @@ class Plugin extends \MapasCulturais\Plugin
         // Criação do usuário
       
         if (!($user_meta = $app->repo("UserMeta")->findOneBy(['key' => 'imported__originId', 'value' => $entity->userId]))) {
+           
             $user = new User();
             $user->authProvider = 0;
             $user->id = $entity->userId;
-            $user->email = $user_data->email;
+            $user->email = $user_data->email ?: $entity->emailPrivado;
             $user->status = User::STATUS_ENABLED;
             $user->authUid = $user_data->auth_id;
             $user->lastLoginTimestamp = $user_data->last_auth;
@@ -164,6 +175,7 @@ class Plugin extends \MapasCulturais\Plugin
             }
         }
         
+        
         $parente_mess = "";
         if($entity->parent){
             if(!($parent_meta = $app->repo('AgentMeta')->findOneBy(['key' => 'imported__originId', 'value' => $entity->parent]))){
@@ -171,7 +183,8 @@ class Plugin extends \MapasCulturais\Plugin
                 $parente_mess = " - ParentId não foi setado";
             }else{
                 $parent = $app->repo("Agent")->find($parent_meta->owner);
-                $agent->parent = $parent;
+                $agent->parent = $parent->id;
+                $agent->imported__parentId = $entity->parent;
                 $parente_mess = " - ParentId {$parent->id}";
             }
         }
@@ -198,10 +211,6 @@ class Plugin extends \MapasCulturais\Plugin
         $app = App::i();
 
         $_type = ucfirst($type);
-
-        if ($this->isCreatedEntity($entity, $_type)) {
-            return;
-        }
 
         $metadata = [];
         if ($this->config['get_metadata'] && $this->getRegisteredMetadada($_type)) {
@@ -253,7 +262,6 @@ class Plugin extends \MapasCulturais\Plugin
         $cb = $this->config['space_cb'];
         $cb($space, $entity);
 
-        $app->em->clear();
         $app->log->debug("Entidade {$entity->id} importada com sucesso");
 
         $app->enableAccessControl();
@@ -350,6 +358,7 @@ class Plugin extends \MapasCulturais\Plugin
        $class = $type."Meta";
         if ($app->repo($class)->findOneBy(['key' => 'imported__originId', 'value' => $entity->id])) {
             $app->log->debug("Entidade {$entity->id} Já foi importada");
+            $app->em->clear();
             return true;
         }
 
@@ -421,5 +430,34 @@ class Plugin extends \MapasCulturais\Plugin
 
         return $data;
 
+    }
+
+    //Relaciona os agentes que estavam com parentid definido na api com os seus agentes originais
+    public function parentIdRelation()
+    {
+        $app = App::i();
+        $conn = $app->em->getConnection();
+
+        if ($parents = $conn->fetchAll("select * from agent_meta am where am.key = 'imported__parentId'")) {
+            
+            $relations = [];
+            foreach ($parents as $parent) {
+                $relations[$parent['object_id']] = $parent['value'];
+            }
+
+            if ($relations) {
+                foreach ($relations as $key => $value) {
+                    $parent_meta = $app->repo('AgentMeta')->findOneBy(['key' => 'imported__originId', 'value' => $value]);
+                    
+                    if($parent = $app->repo("Agent")->find($parent_meta->owner->id)){
+                        $app->disableAccessControl();
+                        $agent = $app->repo("Agent")->find($key);
+                        $agent->parent = $parent;
+                        $agent->save(true);
+                        $app->enableAccessControl();
+                    }
+                }
+            }
+        }
     }
 }
