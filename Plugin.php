@@ -27,7 +27,7 @@ class Plugin extends \MapasCulturais\Plugin
             'files_grp_import' => false,
             'space_cb' => function(){},
             'subsite_importer_password' => "",
-            'cookie' => null
+            'header_get_userdata' => []
         ];
 
         parent::__construct($config);
@@ -378,7 +378,7 @@ class Plugin extends \MapasCulturais\Plugin
        
         $app = App::i();
 
-        if(!$this->config['cookie']){
+        if(!$this->config['header_get_userdata']['cookie']){
             $app->log->debug("Cookie para acesso aos dados de autenticação não foi definido");
             return;
         }
@@ -395,10 +395,10 @@ class Plugin extends \MapasCulturais\Plugin
             'Accept-Language' => 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
             'Cache-Control' => 'no-cache',
             'Connection' => 'keep-alive',
-            'cookie' => $this->config['cookie'],
-            'Host' => 'camacari.ba.mapas.cultura.gov.br',
+            'cookie' => $this->config['header_get_userdata']['cookie'],
+            'Host' => $this->config['header_get_userdata']['host'],
             'Pragma' => 'no-cache',
-            'Referer' =>'http://camacari.ba.mapas.cultura.gov.br/painel/userManagement/',
+            'Referer' =>$this->config['header_get_userdata']['referer'],
             'Upgrade-Insecure-Requests' => '1',
             'User-Agent' => 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36',
         ]);
