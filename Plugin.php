@@ -27,7 +27,7 @@ class Plugin extends \MapasCulturais\Plugin
             'files_grp_import' => false,
             'space_cb' => function(){},
             'subsite_importer_password' => "",
-            'Cookie' => null
+            'cookie' => null
         ];
 
         parent::__construct($config);
