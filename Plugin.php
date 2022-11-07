@@ -108,11 +108,12 @@ class Plugin extends \MapasCulturais\Plugin
                     $user_data = null;
                    
                     if(isset($entity->userId) && $entity->userId){
-                        if(!$this->getUserData($entity->userId)){
+                        $user_data = $this->getUserData($entity->userId);
+
+                        if(!$user_data){
                            continue; 
                         }
 
-                        $user_data = $this->getUserData($entity->userId);
                     }
                  
                     $this->$import_method($entity, $type, $user_data);
@@ -143,7 +144,6 @@ class Plugin extends \MapasCulturais\Plugin
         // Criação do usuário
       
         if (!($user_meta = $app->repo("UserMeta")->findOneBy(['key' => 'imported__originId', 'value' => $entity->userId]))) {
-           
             $user = new User();
             $user->authProvider = 0;
             $user->id = $entity->userId;
@@ -159,7 +159,7 @@ class Plugin extends \MapasCulturais\Plugin
         }
 
         // Criação do agente
-        $properties = ['name', 'location', 'public', 'shortDescription', 'longDescription', 'type'];
+        $properties = ['name', 'location', 'publicLocation', 'shortDescription', 'longDescription', 'type'];
         $fields = array_merge($properties, $metadata);
        
         $agent = new Agent($user);
@@ -168,7 +168,7 @@ class Plugin extends \MapasCulturais\Plugin
         $agent->createTimestamp = (new DateTime($entity->createTimestamp->date));
    
         foreach ($fields as $field) {
-            if (!isset($entity->$field) || empty($entity->$field)) {
+            if (!isset($entity->$field)) {
                 continue;
             }
 
@@ -238,7 +238,7 @@ class Plugin extends \MapasCulturais\Plugin
         $app->disableAccessControl();
         foreach ($fields as $field) {
 
-            if (!isset($entity->$field) || empty($entity->$field)) {
+            if (!isset($entity->$field)) {
                 continue;
             }
 
@@ -378,7 +378,7 @@ class Plugin extends \MapasCulturais\Plugin
        
         $app = App::i();
 
-        if(!$this->config['header_get_userdata']['cookie']){
+        if(!$this->config['header_get_userdata']){
             $app->log->debug("Cookie para acesso aos dados de autenticação não foi definido");
             return;
         }
@@ -390,24 +390,13 @@ class Plugin extends \MapasCulturais\Plugin
 
         $uri = "painel/userManagement";
 
-        $curl = $this->api->apiGet($uri, ["userId" => $userId], [
-            'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-            'Accept-Language' => 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
-            'Cache-Control' => 'no-cache',
-            'Connection' => 'keep-alive',
-            'cookie' => $this->config['header_get_userdata']['cookie'],
-            'Host' => $this->config['header_get_userdata']['host'],
-            'Pragma' => 'no-cache',
-            'Referer' =>$this->config['header_get_userdata']['referer'],
-            'Upgrade-Insecure-Requests' => '1',
-            'User-Agent' => 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36',
-        ]);
+        $curl = $this->api->apiGet($uri, ["userId" => $userId], $this->config['header_get_userdata']);
 
         $exp_email = '#<span class="js-editable editable-click editable-empty" data-edit="email" data-original-title="email" data-emptytext="">\s*([^<]*?)\s*</span>#';
         $exp_auth_id = '#<span class="js-editable editable-click editable-empty" data-edit="" data-original-title="id autenticação" data-emptytext="">\s*([^<]*?)\s*</span>#';
         $exp_last_auth = '#<span class="js-editable editable-click editable-empty" data-edit="" data-original-title="último login" data-emptytext="">\s*([^<]*?)\s*</span>#';
         $exp_created_at = '#<span class="js-editable editable-click editable-empty" data-edit="" data-original-title="data criação" data-emptytext="">\s*([^<]*?)\s*</span>#';
-
+        
         $data = (object)[
             'email' => null,
             'auth_id' => null,
