@@ -41,7 +41,7 @@ class Plugin extends \MapasCulturais\Plugin
 
         $self = $this;
         
-        if(isset($_GET['subsiteimporterpassword']) && ($_GET['subsiteimporterpassword'] == $this->config['subsite_importer_password'])){      
+        if(isset($_GET['subsiteimporterpassword']) && ($_GET['subsiteimporterpassword'] == $this->config['subsite_importer_password'])){     
             $app->hook('mapasculturais.run:after', function() use ($self){
                 $self->importEntities();
 
@@ -51,6 +51,17 @@ class Plugin extends \MapasCulturais\Plugin
         if(isset($_GET['subsiteimporterupdateparent']) && ($_GET['subsiteimporterupdateparent'] == $this->config['subsite_importer_password'])){   
             $this->parentIdRelation();
         }
+
+        $app->hook("entity(Agent).insert:after", function() use ($app){
+            if(isset($_GET['subsiteimporterpassword']) && ($_GET['subsiteimporterpassword'] == $this->config['subsite_importer_password'])){ 
+                if($this->id != $this->imported__originId){
+                    $this->id = $this->originId;
+                    $this->imported__originId = $this->originId;
+                    $app->em->persist($this);
+                    $this->refresh();
+                }
+            }
+        });
     }
 
     public function register()
@@ -162,11 +173,20 @@ class Plugin extends \MapasCulturais\Plugin
         $properties = ['name', 'location', 'publicLocation', 'shortDescription', 'longDescription', 'type'];
         $fields = array_merge($properties, $metadata);
        
-        $agent = new Agent($user);
-        $agent->imported__originId = $entity->id;
-        $agent->id = $entity->id;
-        $agent->createTimestamp = (new DateTime($entity->createTimestamp->date));
-   
+        $conn = $app->em->getConnection();
+        $conn->insert("agent", [
+            'id' => $entity->id,
+            'name' => "",
+            'short_description' => "",
+            'type' => 1,
+            'user_id' => $user->id,
+            'create_timestamp' => (new DateTime($entity->createTimestamp->date))->format("Y-m-d H:i:s"),
+            'status' => $entity->status
+        ]);
+
+        $agent = $app->repo("Agent")->find($entity->id);
+        $agent->_newCreatedRevision();
+
         foreach ($fields as $field) {
             if (!isset($entity->$field)) {
                 continue;
